@@ -578,8 +578,6 @@ The AI Fix Review component includes an advanced side-by-side code comparison fe
 - Code comparison feature testing
 
 ---
-
-**Version**: 2.1.0  
-**Last Updated**: January 2024  
-**Maintainer**: Development Team  
+  
+**Maintainer**: Dulla XPO
 **Features**: Authentication, Code Comparison, Manual Monitor Management, Repository Integration
