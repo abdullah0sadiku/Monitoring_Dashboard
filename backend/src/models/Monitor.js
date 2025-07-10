@@ -1,122 +1,167 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const monitorSchema = new mongoose.Schema({
+const Monitor = sequelize.define('Monitor', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   name: {
-    type: String,
-    required: true,
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      notEmpty: true
+    }
   },
   description: {
-    type: String,
-    trim: true
+    type: DataTypes.TEXT,
+    allowNull: true
   },
   targetUrl: {
-    type: String,
-    required: true,
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      notEmpty: true,
+      isUrl: true
+    }
   },
   monitorType: {
-    type: String,
-    enum: ['web_scraping', 'api_monitoring', 'price_tracking', 'content_monitoring'],
-    default: 'web_scraping'
+    type: DataTypes.ENUM('web_scraping', 'api_monitoring', 'price_tracking', 'content_monitoring'),
+    defaultValue: 'web_scraping'
   },
   status: {
-    type: String,
-    enum: ['active', 'inactive', 'broken', 'maintenance'],
-    default: 'active'
+    type: DataTypes.ENUM('active', 'inactive', 'broken', 'maintenance'),
+    defaultValue: 'active'
   },
   frequency: {
-    type: Number, // minutes
-    default: 30
+    type: DataTypes.INTEGER, // minutes
+    defaultValue: 30
   },
   selectors: {
-    css: [String],
-    xpath: [String]
+    type: DataTypes.TEXT, // JSON string
+    allowNull: true,
+    get() {
+      const value = this.getDataValue('selectors');
+      return value ? JSON.parse(value) : { css: [], xpath: [] };
+    },
+    set(value) {
+      this.setDataValue('selectors', JSON.stringify(value));
+    }
   },
   dataMapping: {
-    type: Map,
-    of: String
+    type: DataTypes.TEXT, // JSON string
+    allowNull: true,
+    get() {
+      const value = this.getDataValue('dataMapping');
+      return value ? JSON.parse(value) : {};
+    },
+    set(value) {
+      this.setDataValue('dataMapping', JSON.stringify(value));
+    }
   },
   validationRules: {
-    type: Map,
-    of: mongoose.Schema.Types.Mixed
+    type: DataTypes.TEXT, // JSON string
+    allowNull: true,
+    get() {
+      const value = this.getDataValue('validationRules');
+      return value ? JSON.parse(value) : {};
+    },
+    set(value) {
+      this.setDataValue('validationRules', JSON.stringify(value));
+    }
   },
-  repository: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Repository'
+  repositoryId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Repositories',
+      key: 'id'
+    }
   },
   filePath: {
-    type: String,
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: true
   },
   branch: {
-    type: String,
-    default: 'main'
+    type: DataTypes.STRING,
+    defaultValue: 'main'
   },
   timeout: {
-    type: Number,
-    default: 30000 // 30 seconds
+    type: DataTypes.INTEGER,
+    defaultValue: 30000 // 30 seconds
   },
   retryAttempts: {
-    type: Number,
-    default: 3
+    type: DataTypes.INTEGER,
+    defaultValue: 3
   },
   lastCheck: {
-    type: Date,
-    default: Date.now
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
   },
   lastAction: {
-    type: String,
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: true
   },
   errorSummary: {
-    type: String,
-    trim: true
+    type: DataTypes.TEXT,
+    allowNull: true
   },
   isActive: {
-    type: Boolean,
-    default: true
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   },
   createdBy: {
-    type: String,
-    required: true
+    type: DataTypes.STRING,
+    allowNull: false
   },
   updatedBy: {
-    type: String
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    {
+      fields: ['status', 'lastCheck']
+    },
+    {
+      fields: ['targetUrl']
+    },
+    {
+      fields: ['repositoryId']
+    }
+  ]
 });
 
-// Index for better query performance
-monitorSchema.index({ status: 1, lastCheck: -1 });
-monitorSchema.index({ targetUrl: 1 });
-monitorSchema.index({ repository: 1 });
-
-// Virtual for checking if monitor is broken
-monitorSchema.virtual('isBroken').get(function() {
-  return this.status === 'broken';
-});
-
-// Method to update monitor status
-monitorSchema.methods.updateStatus = function(status, action, errorSummary = null) {
+// Instance method to update monitor status
+Monitor.prototype.updateStatus = async function(status, action, errorSummary = null) {
   this.status = status;
   this.lastAction = action;
   this.lastCheck = new Date();
   if (errorSummary) {
     this.errorSummary = errorSummary;
   }
-  return this.save();
+  return await this.save();
 };
 
 // Static method to get broken monitors
-monitorSchema.statics.getBrokenMonitors = function() {
-  return this.find({ status: 'broken', isActive: true });
+Monitor.getBrokenMonitors = function() {
+  return this.findAll({
+    where: {
+      status: 'broken',
+      isActive: true
+    }
+  });
 };
 
 // Static method to get active monitors
-monitorSchema.statics.getActiveMonitors = function() {
-  return this.find({ isActive: true });
+Monitor.getActiveMonitors = function() {
+  return this.findAll({
+    where: {
+      isActive: true
+    }
+  });
 };
 
-module.exports = mongoose.model('Monitor', monitorSchema); 
+module.exports = Monitor; 

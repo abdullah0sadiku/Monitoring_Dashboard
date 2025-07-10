@@ -1,10 +1,17 @@
 const Monitor = require('../models/Monitor');
+const Repository = require('../models/Repository');
 const axios = require('axios');
 
 // Get all monitors
 const getAllMonitors = async (req, res) => {
   try {
-    const monitors = await Monitor.find({ isActive: true }).populate('repository');
+    const monitors = await Monitor.findAll({
+      where: { isActive: true },
+      include: [{
+        model: Repository,
+        as: 'repository'
+      }]
+    });
     
     res.json({
       success: true,
@@ -24,7 +31,12 @@ const getAllMonitors = async (req, res) => {
 // Get monitor by ID
 const getMonitorById = async (req, res) => {
   try {
-    const monitor = await Monitor.findById(req.params.id).populate('repository');
+    const monitor = await Monitor.findByPk(req.params.id, {
+      include: [{
+        model: Repository,
+        as: 'repository'
+      }]
+    });
     
     if (!monitor) {
       return res.status(404).json({
@@ -51,8 +63,7 @@ const getMonitorById = async (req, res) => {
 // Create new monitor
 const createMonitor = async (req, res) => {
   try {
-    const monitor = new Monitor(req.body);
-    await monitor.save();
+    const monitor = await Monitor.create(req.body);
     
     res.status(201).json({
       success: true,
@@ -72,11 +83,7 @@ const createMonitor = async (req, res) => {
 // Update monitor
 const updateMonitor = async (req, res) => {
   try {
-    const monitor = await Monitor.findByIdAndUpdate(
-      req.params.id,
-      { ...req.body, updatedAt: new Date() },
-      { new: true, runValidators: true }
-    ).populate('repository');
+    const monitor = await Monitor.findByPk(req.params.id);
     
     if (!monitor) {
       return res.status(404).json({
@@ -84,6 +91,8 @@ const updateMonitor = async (req, res) => {
         error: 'Monitor not found'
       });
     }
+    
+    await monitor.update(req.body);
     
     res.json({
       success: true,
@@ -103,11 +112,7 @@ const updateMonitor = async (req, res) => {
 // Delete monitor
 const deleteMonitor = async (req, res) => {
   try {
-    const monitor = await Monitor.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+    const monitor = await Monitor.findByPk(req.params.id);
     
     if (!monitor) {
       return res.status(404).json({
@@ -115,6 +120,8 @@ const deleteMonitor = async (req, res) => {
         error: 'Monitor not found'
       });
     }
+    
+    await monitor.update({ isActive: false });
     
     res.json({
       success: true,
@@ -232,7 +239,7 @@ const testMonitor = async (req, res) => {
 // Get broken monitors
 const getBrokenMonitors = async (req, res) => {
   try {
-    const brokenMonitors = await Monitor.getBrokenMonitors().populate('repository');
+    const brokenMonitors = await Monitor.getBrokenMonitors();
     
     res.json({
       success: true,
@@ -252,10 +259,10 @@ const getBrokenMonitors = async (req, res) => {
 // Get monitor statistics
 const getMonitorStats = async (req, res) => {
   try {
-    const totalMonitors = await Monitor.countDocuments({ isActive: true });
-    const activeMonitors = await Monitor.countDocuments({ status: 'active', isActive: true });
-    const brokenMonitors = await Monitor.countDocuments({ status: 'broken', isActive: true });
-    const inactiveMonitors = await Monitor.countDocuments({ status: 'inactive', isActive: true });
+    const totalMonitors = await Monitor.count({ where: { isActive: true } });
+    const activeMonitors = await Monitor.count({ where: { status: 'active', isActive: true } });
+    const brokenMonitors = await Monitor.count({ where: { status: 'broken', isActive: true } });
+    const inactiveMonitors = await Monitor.count({ where: { status: 'inactive', isActive: true } });
     
     res.json({
       success: true,

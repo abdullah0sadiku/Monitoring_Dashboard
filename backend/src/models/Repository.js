@@ -1,167 +1,101 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const repositorySchema = new mongoose.Schema({
+const Repository = sequelize.define('Repository', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   name: {
-    type: String,
-    required: true,
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      notEmpty: true
+    }
   },
   description: {
-    type: String,
-    trim: true
+    type: DataTypes.TEXT,
+    allowNull: true
   },
-  provider: {
-    type: String,
-    enum: ['github', 'gitlab'],
-    required: true
+  type: {
+    type: DataTypes.ENUM('github', 'gitlab'),
+    allowNull: false
   },
   url: {
-    type: String,
-    required: true,
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      notEmpty: true,
+      isUrl: true
+    }
   },
   owner: {
-    type: String,
-    required: true,
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false
   },
   repo: {
-    type: String,
-    required: true,
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false
   },
-  defaultBranch: {
-    type: String,
-    default: 'main'
+  branch: {
+    type: DataTypes.STRING,
+    defaultValue: 'main'
   },
   accessToken: {
-    type: String,
-    required: true
+    type: DataTypes.STRING,
+    allowNull: true
   },
   webhookSecret: {
-    type: String
-  },
-  webhookUrl: {
-    type: String
+    type: DataTypes.STRING,
+    allowNull: true
   },
   isActive: {
-    type: Boolean,
-    default: true
-  },
-  deploymentSettings: {
-    autoDeploy: {
-      type: Boolean,
-      default: false
-    },
-    requireApproval: {
-      type: Boolean,
-      default: true
-    },
-    deploymentBranch: {
-      type: String,
-      default: 'main'
-    },
-    deploymentPath: {
-      type: String,
-      default: '/monitors'
-    },
-    rollbackEnabled: {
-      type: Boolean,
-      default: true
-    }
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   },
   lastSync: {
-    type: Date,
-    default: Date.now
-  },
-  syncStatus: {
-    type: String,
-    enum: ['success', 'failed', 'pending'],
-    default: 'pending'
-  },
-  errorMessage: {
-    type: String,
-    trim: true
+    type: DataTypes.DATE,
+    allowNull: true
   },
   createdBy: {
-    type: String,
-    required: true
+    type: DataTypes.STRING,
+    allowNull: false
   },
   updatedBy: {
-    type: String
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
-  timestamps: true
-});
-
-// Index for better query performance
-repositorySchema.index({ provider: 1, owner: 1, repo: 1 });
-repositorySchema.index({ isActive: 1 });
-
-// Virtual for full repository name
-repositorySchema.virtual('fullName').get(function() {
-  return `${this.owner}/${this.repo}`;
-});
-
-// Virtual for API URL
-repositorySchema.virtual('apiUrl').get(function() {
-  if (this.provider === 'github') {
-    return `https://api.github.com/repos/${this.owner}/${this.repo}`;
-  } else if (this.provider === 'gitlab') {
-    return `https://gitlab.com/api/v4/projects/${this.owner}%2F${this.repo}`;
-  }
-  return null;
-});
-
-// Method to test repository connection
-repositorySchema.methods.testConnection = async function() {
-  try {
-    const axios = require('axios');
-    
-    if (this.provider === 'github') {
-      const response = await axios.get(this.apiUrl, {
-        headers: {
-          'Authorization': `token ${this.accessToken}`,
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      });
-      return { success: true, data: response.data };
-    } else if (this.provider === 'gitlab') {
-      const response = await axios.get(this.apiUrl, {
-        headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      return { success: true, data: response.data };
+  timestamps: true,
+  indexes: [
+    {
+      fields: ['type', 'owner', 'repo'],
+      unique: true
+    },
+    {
+      fields: ['isActive']
     }
-  } catch (error) {
-    return { 
-      success: false, 
-      error: error.message,
-      status: error.response?.status
-    };
-  }
-};
-
-// Method to update sync status
-repositorySchema.methods.updateSyncStatus = function(status, errorMessage = null) {
-  this.syncStatus = status;
-  this.lastSync = new Date();
-  if (errorMessage) {
-    this.errorMessage = errorMessage;
-  }
-  return this.save();
-};
+  ]
+});
 
 // Static method to get active repositories
-repositorySchema.statics.getActiveRepositories = function() {
-  return this.find({ isActive: true });
+Repository.getActiveRepositories = function() {
+  return this.findAll({
+    where: {
+      isActive: true
+    }
+  });
 };
 
-// Static method to get repositories by provider
-repositorySchema.statics.getByProvider = function(provider) {
-  return this.find({ provider, isActive: true });
+// Static method to get repositories by type
+Repository.getByType = function(type) {
+  return this.findAll({
+    where: {
+      type,
+      isActive: true
+    }
+  });
 };
 
-module.exports = mongoose.model('Repository', repositorySchema); 
+module.exports = Repository; 
