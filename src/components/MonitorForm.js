@@ -17,6 +17,41 @@ function MonitorForm({ user, onLogout }) {
       xpath: ['']
     },
     dataMapping: {},
+    // Enhanced GitHub Repository Configuration
+    scraperRepository: {
+      url: '',
+      branch: 'main',
+      scriptPath: '',
+      deploymentPath: '',
+      accessToken: ''
+    },
+    // Scraper Performance Monitoring
+    performanceMetrics: {
+      maxResponseTime: 30000,
+      minSuccessRate: 95,
+      alertThreshold: 5,
+      enablePerformanceAlerts: true,
+      trackMemoryUsage: true,
+      trackCpuUsage: true
+    },
+    // Scraper Quality Monitoring
+    qualityChecks: {
+      dataValidation: true,
+      schemaValidation: true,
+      duplicateDetection: true,
+      missingDataAlerts: true,
+      qualityThreshold: 90,
+      expectedDataPoints: 0,
+      enableQualityAlerts: true
+    },
+    // Deployment Configuration
+    deploymentConfig: {
+      environment: 'production',
+      autoDeployOnChange: false,
+      deploymentPlatform: 'github_actions',
+      dockerImage: '',
+      environmentVariables: {}
+    },
     repository: '',
     filePath: '',
     branch: 'main',
@@ -28,6 +63,8 @@ function MonitorForm({ user, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [testResult, setTestResult] = useState(null);
+  const [githubRepos, setGithubRepos] = useState([]);
+  const [loadingRepos, setLoadingRepos] = useState(false);
 
   useEffect(() => {
     fetchRepositories();
@@ -45,6 +82,29 @@ function MonitorForm({ user, onLogout }) {
       }
     } catch (error) {
       console.error('Error fetching repositories:', error);
+    }
+  };
+
+  const fetchGithubRepos = async (accessToken) => {
+    if (!accessToken) return;
+    
+    setLoadingRepos(true);
+    try {
+      const response = await fetch('/api/github/repositories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ accessToken })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setGithubRepos(data.repositories);
+      }
+    } catch (error) {
+      console.error('Error fetching GitHub repos:', error);
+    } finally {
+      setLoadingRepos(false);
     }
   };
 
@@ -73,6 +133,26 @@ function MonitorForm({ user, onLogout }) {
         [name]: ''
       }));
     }
+  };
+
+  const handleNestedInputChange = (section, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleCheckboxChange = (section, field) => {
+    setFormData(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: !prev[section][field]
+      }
+    }));
   };
 
   const handleSelectorChange = (type, index, value) => {
@@ -126,6 +206,15 @@ function MonitorForm({ user, onLogout }) {
     
     if (formData.timeout < 1000) {
       newErrors.timeout = 'Timeout must be at least 1000ms';
+    }
+
+    // Validate scraper repository
+    if (!formData.scraperRepository.url.trim()) {
+      newErrors.scraperRepository = 'Scraper GitHub repository URL is required';
+    }
+
+    if (!formData.scraperRepository.scriptPath.trim()) {
+      newErrors.scriptPath = 'Scraper script path is required';
     }
     
     setErrors(newErrors);
@@ -224,10 +313,10 @@ function MonitorForm({ user, onLogout }) {
               </button>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">
-                  {isEditing ? 'Edit Monitor' : 'Add New Monitor'}
+                  {isEditing ? 'Edit Scraper Monitor' : 'Add New Scraper Monitor'}
                 </h1>
                 <p className="mt-1 text-sm text-gray-500">
-                  Configure a new monitoring system
+                  Configure scraper performance and quality monitoring
                 </p>
               </div>
             </div>
@@ -274,7 +363,7 @@ function MonitorForm({ user, onLogout }) {
                     className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
                       errors.name ? 'border-red-300' : 'border-gray-300'
                     }`}
-                    placeholder="e.g., Bank Account Monitor"
+                    placeholder="e.g., E-commerce Price Scraper Monitor"
                   />
                   {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
                 </div>
@@ -294,6 +383,7 @@ function MonitorForm({ user, onLogout }) {
                     <option value="api_monitoring">API Monitoring</option>
                     <option value="price_tracking">Price Tracking</option>
                     <option value="content_monitoring">Content Monitoring</option>
+                    <option value="data_extraction">Data Extraction</option>
                   </select>
                 </div>
               </div>
@@ -309,7 +399,7 @@ function MonitorForm({ user, onLogout }) {
                   onChange={handleInputChange}
                   rows={3}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Describe what this monitor does..."
+                  placeholder="Describe what this scraper monitors and what data it collects..."
                 />
               </div>
 
@@ -326,9 +416,407 @@ function MonitorForm({ user, onLogout }) {
                   className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
                     errors.targetUrl ? 'border-red-300' : 'border-gray-300'
                   }`}
-                  placeholder="https://example.com"
+                  placeholder="https://example.com/products"
                 />
                 {errors.targetUrl && <p className="mt-1 text-sm text-red-600">{errors.targetUrl}</p>}
+              </div>
+            </div>
+          </div>
+
+          {/* Scraper GitHub Repository Configuration */}
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Scraper Repository Configuration</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Connect your scraper GitHub repository for deployment and monitoring
+              </p>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="scraperRepoUrl" className="block text-sm font-medium text-gray-700">
+                    GitHub Repository URL *
+                  </label>
+                  <input
+                    type="url"
+                    id="scraperRepoUrl"
+                    value={formData.scraperRepository.url}
+                    onChange={(e) => handleNestedInputChange('scraperRepository', 'url', e.target.value)}
+                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                      errors.scraperRepository ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="https://github.com/username/scraper-repo"
+                  />
+                  {errors.scraperRepository && <p className="mt-1 text-sm text-red-600">{errors.scraperRepository}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="accessToken" className="block text-sm font-medium text-gray-700">
+                    GitHub Access Token
+                  </label>
+                  <input
+                    type="password"
+                    id="accessToken"
+                    value={formData.scraperRepository.accessToken}
+                    onChange={(e) => {
+                      handleNestedInputChange('scraperRepository', 'accessToken', e.target.value);
+                      if (e.target.value) {
+                        fetchGithubRepos(e.target.value);
+                      }
+                    }}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Required for private repositories and deployment
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="branch" className="block text-sm font-medium text-gray-700">
+                    Branch
+                  </label>
+                  <input
+                    type="text"
+                    id="branch"
+                    value={formData.scraperRepository.branch}
+                    onChange={(e) => handleNestedInputChange('scraperRepository', 'branch', e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="main"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="scriptPath" className="block text-sm font-medium text-gray-700">
+                    Scraper Script Path *
+                  </label>
+                  <input
+                    type="text"
+                    id="scriptPath"
+                    value={formData.scraperRepository.scriptPath}
+                    onChange={(e) => handleNestedInputChange('scraperRepository', 'scriptPath', e.target.value)}
+                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                      errors.scriptPath ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="src/scraper.py"
+                  />
+                  {errors.scriptPath && <p className="mt-1 text-sm text-red-600">{errors.scriptPath}</p>}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="deploymentPath" className="block text-sm font-medium text-gray-700">
+                  Deployment Path
+                </label>
+                <input
+                  type="text"
+                  id="deploymentPath"
+                  value={formData.scraperRepository.deploymentPath}
+                  onChange={(e) => handleNestedInputChange('scraperRepository', 'deploymentPath', e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="deployment/"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Path where deployment configurations will be stored
+                </p>
+              </div>
+
+              {loadingRepos && (
+                <div className="text-center py-4">
+                  <div className="inline-flex items-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Loading repositories...
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Scraper Performance Monitoring */}
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Performance Monitoring</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Configure performance thresholds and monitoring settings
+              </p>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label htmlFor="maxResponseTime" className="block text-sm font-medium text-gray-700">
+                    Max Response Time (ms)
+                  </label>
+                  <input
+                    type="number"
+                    id="maxResponseTime"
+                    value={formData.performanceMetrics.maxResponseTime}
+                    onChange={(e) => handleNestedInputChange('performanceMetrics', 'maxResponseTime', parseInt(e.target.value))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    min="1000"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="minSuccessRate" className="block text-sm font-medium text-gray-700">
+                    Min Success Rate (%)
+                  </label>
+                  <input
+                    type="number"
+                    id="minSuccessRate"
+                    value={formData.performanceMetrics.minSuccessRate}
+                    onChange={(e) => handleNestedInputChange('performanceMetrics', 'minSuccessRate', parseInt(e.target.value))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="alertThreshold" className="block text-sm font-medium text-gray-700">
+                    Alert Threshold (failures)
+                  </label>
+                  <input
+                    type="number"
+                    id="alertThreshold"
+                    value={formData.performanceMetrics.alertThreshold}
+                    onChange={(e) => handleNestedInputChange('performanceMetrics', 'alertThreshold', parseInt(e.target.value))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    min="1"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="enablePerformanceAlerts"
+                    checked={formData.performanceMetrics.enablePerformanceAlerts}
+                    onChange={() => handleCheckboxChange('performanceMetrics', 'enablePerformanceAlerts')}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="enablePerformanceAlerts" className="ml-2 block text-sm text-gray-900">
+                    Enable Performance Alerts
+                  </label>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="trackMemoryUsage"
+                    checked={formData.performanceMetrics.trackMemoryUsage}
+                    onChange={() => handleCheckboxChange('performanceMetrics', 'trackMemoryUsage')}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="trackMemoryUsage" className="ml-2 block text-sm text-gray-900">
+                    Track Memory Usage
+                  </label>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="trackCpuUsage"
+                    checked={formData.performanceMetrics.trackCpuUsage}
+                    onChange={() => handleCheckboxChange('performanceMetrics', 'trackCpuUsage')}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="trackCpuUsage" className="ml-2 block text-sm text-gray-900">
+                    Track CPU Usage
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Scraper Quality Monitoring */}
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Quality Monitoring</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Configure data quality checks and validation rules
+              </p>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="qualityThreshold" className="block text-sm font-medium text-gray-700">
+                    Quality Threshold (%)
+                  </label>
+                  <input
+                    type="number"
+                    id="qualityThreshold"
+                    value={formData.qualityChecks.qualityThreshold}
+                    onChange={(e) => handleNestedInputChange('qualityChecks', 'qualityThreshold', parseInt(e.target.value))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="expectedDataPoints" className="block text-sm font-medium text-gray-700">
+                    Expected Data Points
+                  </label>
+                  <input
+                    type="number"
+                    id="expectedDataPoints"
+                    value={formData.qualityChecks.expectedDataPoints}
+                    onChange={(e) => handleNestedInputChange('qualityChecks', 'expectedDataPoints', parseInt(e.target.value))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    min="0"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="dataValidation"
+                      checked={formData.qualityChecks.dataValidation}
+                      onChange={() => handleCheckboxChange('qualityChecks', 'dataValidation')}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="dataValidation" className="ml-2 block text-sm text-gray-900">
+                      Enable Data Validation
+                    </label>
+                  </div>
+
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="schemaValidation"
+                      checked={formData.qualityChecks.schemaValidation}
+                      onChange={() => handleCheckboxChange('qualityChecks', 'schemaValidation')}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="schemaValidation" className="ml-2 block text-sm text-gray-900">
+                      Enable Schema Validation
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="duplicateDetection"
+                      checked={formData.qualityChecks.duplicateDetection}
+                      onChange={() => handleCheckboxChange('qualityChecks', 'duplicateDetection')}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="duplicateDetection" className="ml-2 block text-sm text-gray-900">
+                      Enable Duplicate Detection
+                    </label>
+                  </div>
+
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="missingDataAlerts"
+                      checked={formData.qualityChecks.missingDataAlerts}
+                      onChange={() => handleCheckboxChange('qualityChecks', 'missingDataAlerts')}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="missingDataAlerts" className="ml-2 block text-sm text-gray-900">
+                      Missing Data Alerts
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="enableQualityAlerts"
+                  checked={formData.qualityChecks.enableQualityAlerts}
+                  onChange={() => handleCheckboxChange('qualityChecks', 'enableQualityAlerts')}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="enableQualityAlerts" className="ml-2 block text-sm text-gray-900">
+                  Enable Quality Alerts
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Deployment Configuration */}
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Deployment Configuration</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Configure how the scraper should be deployed and managed
+              </p>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="environment" className="block text-sm font-medium text-gray-700">
+                    Environment
+                  </label>
+                  <select
+                    id="environment"
+                    value={formData.deploymentConfig.environment}
+                    onChange={(e) => handleNestedInputChange('deploymentConfig', 'environment', e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  >
+                    <option value="development">Development</option>
+                    <option value="staging">Staging</option>
+                    <option value="production">Production</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="deploymentPlatform" className="block text-sm font-medium text-gray-700">
+                    Deployment Platform
+                  </label>
+                  <select
+                    id="deploymentPlatform"
+                    value={formData.deploymentConfig.deploymentPlatform}
+                    onChange={(e) => handleNestedInputChange('deploymentConfig', 'deploymentPlatform', e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  >
+                    <option value="github_actions">GitHub Actions</option>
+                    <option value="docker">Docker</option>
+                    <option value="kubernetes">Kubernetes</option>
+                    <option value="aws_lambda">AWS Lambda</option>
+                    <option value="heroku">Heroku</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="dockerImage" className="block text-sm font-medium text-gray-700">
+                  Docker Image (Optional)
+                </label>
+                <input
+                  type="text"
+                  id="dockerImage"
+                  value={formData.deploymentConfig.dockerImage}
+                  onChange={(e) => handleNestedInputChange('deploymentConfig', 'dockerImage', e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="python:3.9-slim"
+                />
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="autoDeployOnChange"
+                  checked={formData.deploymentConfig.autoDeployOnChange}
+                  onChange={() => handleCheckboxChange('deploymentConfig', 'autoDeployOnChange')}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="autoDeployOnChange" className="ml-2 block text-sm text-gray-900">
+                  Auto-deploy on Repository Changes
+                </label>
               </div>
             </div>
           </div>
@@ -336,7 +824,7 @@ function MonitorForm({ user, onLogout }) {
           {/* Configuration */}
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Configuration</h3>
+              <h3 className="text-lg font-medium text-gray-900">General Configuration</h3>
             </div>
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -395,7 +883,7 @@ function MonitorForm({ user, onLogout }) {
             </div>
           </div>
 
-          {/* Selectors */}
+          {/* Data Selectors */}
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">Data Selectors</h3>
@@ -470,12 +958,12 @@ function MonitorForm({ user, onLogout }) {
             </div>
           </div>
 
-          {/* Repository Configuration */}
+          {/* Legacy Repository Configuration */}
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Repository Configuration</h3>
+              <h3 className="text-lg font-medium text-gray-900">Legacy Repository Configuration</h3>
               <p className="mt-1 text-sm text-gray-500">
-                Connect this monitor to a repository for deployment
+                Optional: Connect to existing repository configuration
               </p>
             </div>
             <div className="p-6 space-y-6">
@@ -544,11 +1032,31 @@ function MonitorForm({ user, onLogout }) {
               <div className="p-6">
                 {testResult.success ? (
                   <div className="text-green-700">
-                    <p>✅ Test successful! Monitor configuration is valid.</p>
+                    <p>✅ Test successful! Scraper configuration is valid.</p>
+                    {testResult.performance && (
+                      <div className="mt-4 p-4 bg-green-50 rounded-md">
+                        <h4 className="font-medium">Performance Metrics:</h4>
+                        <ul className="mt-2 text-sm">
+                          <li>Response Time: {testResult.performance.responseTime}ms</li>
+                          <li>Data Points Extracted: {testResult.performance.dataPoints}</li>
+                          <li>Success Rate: {testResult.performance.successRate}%</li>
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-red-700">
                     <p>❌ Test failed: {testResult.error}</p>
+                    {testResult.suggestions && (
+                      <div className="mt-4 p-4 bg-red-50 rounded-md">
+                        <h4 className="font-medium">Suggestions:</h4>
+                        <ul className="mt-2 text-sm list-disc list-inside">
+                          {testResult.suggestions.map((suggestion, index) => (
+                            <li key={index}>{suggestion}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -578,9 +1086,9 @@ function MonitorForm({ user, onLogout }) {
                 type="button"
                 onClick={handleTest}
                 disabled={loading}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50"
+                className="bg-green-100 hover:bg-green-200 text-green-700 px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
               >
-                Test Configuration
+                Test Scraper Configuration
               </button>
             </div>
             <div className="flex space-x-4">
@@ -596,7 +1104,7 @@ function MonitorForm({ user, onLogout }) {
                 disabled={loading}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
               >
-                {loading ? 'Saving...' : (isEditing ? 'Update Monitor' : 'Create Monitor')}
+                {loading ? 'Saving...' : (isEditing ? 'Update Scraper Monitor' : 'Create Scraper Monitor')}
               </button>
             </div>
           </div>
