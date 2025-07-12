@@ -27,7 +27,7 @@ const Monitor = sequelize.define('Monitor', {
     }
   },
   monitorType: {
-    type: DataTypes.ENUM('web_scraping', 'api_monitoring', 'price_tracking', 'content_monitoring'),
+    type: DataTypes.ENUM('web_scraping', 'api_monitoring', 'price_tracking', 'content_monitoring', 'data_extraction'),
     defaultValue: 'web_scraping'
   },
   status: {
@@ -58,6 +58,81 @@ const Monitor = sequelize.define('Monitor', {
     },
     set(value) {
       this.setDataValue('dataMapping', JSON.stringify(value));
+    }
+  },
+  // Enhanced GitHub Repository Configuration
+  scraperRepository: {
+    type: DataTypes.TEXT, // JSON string
+    allowNull: true,
+    get() {
+      const value = this.getDataValue('scraperRepository');
+      return value ? JSON.parse(value) : {
+        url: '',
+        branch: 'main',
+        scriptPath: '',
+        deploymentPath: '',
+        accessToken: ''
+      };
+    },
+    set(value) {
+      this.setDataValue('scraperRepository', JSON.stringify(value));
+    }
+  },
+  // Scraper Performance Monitoring
+  performanceMetrics: {
+    type: DataTypes.TEXT, // JSON string
+    allowNull: true,
+    get() {
+      const value = this.getDataValue('performanceMetrics');
+      return value ? JSON.parse(value) : {
+        maxResponseTime: 30000,
+        minSuccessRate: 95,
+        alertThreshold: 5,
+        enablePerformanceAlerts: true,
+        trackMemoryUsage: true,
+        trackCpuUsage: true
+      };
+    },
+    set(value) {
+      this.setDataValue('performanceMetrics', JSON.stringify(value));
+    }
+  },
+  // Scraper Quality Monitoring
+  qualityChecks: {
+    type: DataTypes.TEXT, // JSON string
+    allowNull: true,
+    get() {
+      const value = this.getDataValue('qualityChecks');
+      return value ? JSON.parse(value) : {
+        dataValidation: true,
+        schemaValidation: true,
+        duplicateDetection: true,
+        missingDataAlerts: true,
+        qualityThreshold: 90,
+        expectedDataPoints: 0,
+        enableQualityAlerts: true
+      };
+    },
+    set(value) {
+      this.setDataValue('qualityChecks', JSON.stringify(value));
+    }
+  },
+  // Deployment Configuration
+  deploymentConfig: {
+    type: DataTypes.TEXT, // JSON string
+    allowNull: true,
+    get() {
+      const value = this.getDataValue('deploymentConfig');
+      return value ? JSON.parse(value) : {
+        environment: 'production',
+        autoDeployOnChange: false,
+        deploymentPlatform: 'github_actions',
+        dockerImage: '',
+        environmentVariables: {}
+      };
+    },
+    set(value) {
+      this.setDataValue('deploymentConfig', JSON.stringify(value));
     }
   },
   validationRules: {
