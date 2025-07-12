@@ -9,6 +9,7 @@ const monitorRoutes = require('./routes/monitors');
 const deploymentRoutes = require('./routes/deployments');
 const repositoryRoutes = require('./routes/repositories');
 const aiRoutes = require('./routes/ai');
+const githubRoutes = require('./routes/github');
 
 const errorHandler = require('./middleware/errorHandler');
 const { connectDatabase } = require('./config/database');
@@ -49,6 +50,7 @@ app.use('/api/monitors', monitorRoutes);
 app.use('/api/deployments', deploymentRoutes);
 app.use('/api/repositories', repositoryRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/github', githubRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
