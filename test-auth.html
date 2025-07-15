@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MagicUI Auth Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>MagicUI Authentication Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Login</h3>
+        <button onclick="testLogin()">Test Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Test Monitors (with token)</h3>
+        <button onclick="testMonitors()">Test Monitors</button>
+        <div id="monitorsResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test Health Check</h3>
+        <button onclick="testHealth()">Test Health</button>
+        <div id="healthResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. Current Token</h3>
+        <button onclick="showToken()">Show Token</button>
+        <div id="tokenResult"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        let currentToken = localStorage.getItem('token');
+
+        function logResult(elementId, success, message, data = null) {
+            const element = document.getElementById(elementId);
+            element.className = success ? 'success' : 'error';
+            element.innerHTML = `
+                <h4>${success ? '✅ Success' : '❌ Error'}</h4>
+                <p>${message}</p>
+                ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+            `;
+        }
+
+        async function testLogin() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@magicui.com',
+                        password: 'admin123'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Login failed');
+                }
+
+                currentToken = data.token;
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+
+                logResult('loginResult', true, 'Login successful!', data);
+            } catch (error) {
+                logResult('loginResult', false, `Login failed: ${error.message}`);
+            }
+        }
+
+        async function testMonitors() {
+            if (!currentToken) {
+                logResult('monitorsResult', false, 'No token available. Please login first.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/monitors`, {
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Monitors request failed');
+                }
+
+                logResult('monitorsResult', true, 'Monitors request successful!', data);
+            } catch (error) {
+                logResult('monitorsResult', false, `Monitors request failed: ${error.message}`);
+            }
+        }
+
+        async function testHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error('Health check failed');
+                }
+
+                logResult('healthResult', true, 'Health check successful!', data);
+            } catch (error) {
+                logResult('healthResult', false, `Health check failed: ${error.message}`);
+            }
+        }
+
+        function showToken() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                logResult('tokenResult', true, 'Token found in localStorage', {
+                    token: token.substring(0, 50) + '...',
+                    fullToken: token
+                });
+            } else {
+                logResult('tokenResult', false, 'No token found in localStorage');
+            }
+        }
+
+        // Auto-test on page load
+        window.onload = function() {
+            testHealth();
+            showToken();
+        };
+    </script>
+</body>
+</html> 

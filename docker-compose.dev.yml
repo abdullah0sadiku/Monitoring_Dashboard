@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # Backend API (Development)
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: magicui-backend-dev
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DB_PATH=/app/data/magicui.db
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-key}
+      - JWT_EXPIRES_IN=24h
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CORS_ORIGIN=http://localhost:3000
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - backend_data_dev:/app/data
+      - backend_uploads_dev:/app/uploads
+    networks:
+      - magicui-network-dev
+    restart: unless-stopped
+    command: npm run dev
+
+  # Frontend React App (Development)
+  frontend:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: magicui-frontend-dev
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - magicui-network-dev
+    restart: unless-stopped
+    environment:
+      - REACT_APP_API_URL=http://localhost:3001
+    command: npm start
+
+volumes:
+  backend_data_dev:
+    driver: local
+  backend_uploads_dev:
+    driver: local
+
+networks:
+  magicui-network-dev:
+    driver: bridge 
